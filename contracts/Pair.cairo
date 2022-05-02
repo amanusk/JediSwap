@@ -50,6 +50,12 @@ namespace IRegistry:
     end
 end
 
+@contract_interface
+namespace IUniswapV2Callee:
+    func uniswapV2Call(caller_address: felt, amount0Out: Uint256, amount1Out: Uint256, data_len: felt, data: felt*):
+    end
+end
+
 #
 # Storage ERC20
 #
@@ -679,7 +685,7 @@ func swap{
         syscall_ptr : felt*, 
         pedersen_ptr : HashBuiltin*,
         range_check_ptr
-    }(amount0Out: Uint256, amount1Out: Uint256, to: felt):
+    }(amount0Out: Uint256, amount1Out: Uint256, to: felt, data_len: felt, data: felt*):
     alloc_locals
     _check_and_lock()
     local sufficient_output_amount
@@ -696,6 +702,19 @@ func swap{
     end
     with_attr error_message("Pair::swap::insufficient output amount"):
         assert sufficient_output_amount = 1
+    end
+    let (caller_address) = get_caller_address()
+
+    let (data_len_greater_than_zero) = is_le(0, data_len)
+    if data_len_greater_than_zero == 1:
+        IUniswapV2Callee.uniswapV2Call(contract_address=to, caller_address=caller_address, amount0Out=amount0Out, amount1Out=amount1Out, data_len=data_len, data=data)
+        tempvar syscall_ptr = syscall_ptr
+        tempvar pedersen_ptr = pedersen_ptr
+        tempvar range_check_ptr = range_check_ptr
+    else:
+        tempvar syscall_ptr = syscall_ptr
+        tempvar pedersen_ptr = pedersen_ptr
+        tempvar range_check_ptr = range_check_ptr
     end
     
     let (local reserve0: Uint256, local reserve1: Uint256, _) = _get_reserves()
